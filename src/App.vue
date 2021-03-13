@@ -88,30 +88,37 @@
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
-        <button
-          type="button"
-          @click="addTicker"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          Prev
-        </button>
-        <button
-          type="button"
-          @click="addTicker"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          Next
-        </button>
+        <div class="flex justify-between items-center">
+          <div>
+            <button
+              type="button"
+              v-if="page > 1"
+              @click="page = page - 1"
+              class="m-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              v-if="isHaveNextPage"
+              @click="page = page + 1"
+              class="m-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            >
+              Next
+            </button>
+          </div>
+          <div>Фильтр: <input v-model="filter" /></div>
+        </div>
         <hr class="w-full border-t border-gray-600 my-4" />
 
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <!-- Tickers (active with border-4 -->
           <div
-            v-for="item in tickers"
+            v-for="item in paginatedTickers"
             :key="item.name"
             @click="select(item)"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
-            :class="{ 'border-4': sel === item }"
+            :class="{ 'border-4': selectedTicker === item }"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
@@ -147,20 +154,20 @@
       </template>
 
       <!-- chart -->
-      <section v-if="sel" class="relative">
+      <section v-if="selectedTicker" class="relative">
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          {{ sel.name }} - USD
+          {{ selectedTicker.name }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-            v-for="(bar, ind) in normalizeGraph()"
+            v-for="(bar, ind) in normalizedGraph"
             :key="ind"
             class="bg-purple-800 border w-10"
             :style="{ height: `${bar}%` }"
           ></div>
         </div>
         <button
-          @click="sel = null"
+          @click="selectedTicker = null"
           type="button"
           class="absolute top-0 right-0"
         >
@@ -199,21 +206,79 @@ export default {
     loading: true,
     ticker: "",
     tickers: [],
-    sel: null,
+    selectedTicker: null,
     graph: [],
     tips: [],
     curencies: [],
-    tickerExist: false
+    tickerExist: false,
+    filter: "",
+    page: 1,
+    tickersOnPage: 3
   }),
+  computed: {
+    isHaveNextPage() {
+      return this.filteredTickers.length > this.endT;
+    },
+    startT() {
+      return this.tickersOnPage * (this.page - 1);
+    },
+    endT() {
+      return this.tickersOnPage * this.page;
+    },
+    paginatedTickers() {
+      return this.filteredTickers.slice(this.startT, this.endT);
+    },
+    filteredTickers() {
+      return this.tickers.filter(i =>
+        i.name.includes(this.filter.toUpperCase())
+      );
+    },
+    normalizedGraph() {
+      const min = Math.min(...this.graph);
+      const max = Math.max(...this.graph);
+      if (min === max) {
+        () => 50;
+      }
+      return this.graph.map(i => 5 + ((i - min) * 95) / (max - min));
+    },
+    pageOptions() {
+      return {
+        filter: this.filter,
+        page: this.page
+      };
+    }
+  },
   watch: {
+    selectedTicker() {
+      this.graph = [];
+    },
+    paginatedTickers() {
+      if (this.paginatedTickers.length == 0 && this.page > 1) {
+        this.page -= 1;
+      }
+    },
     ticker() {
       if (this.ticker !== "") {
         this.ticker = this.ticker.toUpperCase();
         this.tips = this.curencies
           .filter(i => i.includes(this.ticker))
           .slice(0, 4);
+      } else {
+        this.tips = [];
       }
-      console.log("ex: ", this.tickerExist);
+    },
+    tickers() {
+      localStorage.setItem("tickers", JSON.stringify(this.tickers));
+    },
+    filter() {
+      this.page = 1;
+    },
+    pageOptions(value) {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
+      );
     }
   },
   async created() {
@@ -222,10 +287,22 @@ export default {
     );
     const cur = await c.json();
     this.curencies = cur.Data.map(i => i.CoinInfo.Name);
+
+    const windowData = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    );
+
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
+
     const dataFromLocal = localStorage.getItem("tickers");
     if (dataFromLocal) {
       this.tickers = JSON.parse(dataFromLocal);
-      console.log("from local: ", this.tickers);
       this.tickers.forEach(tiker => {
         this.subscribeToUpdates(tiker.name);
       });
@@ -241,18 +318,19 @@ export default {
         const data = await f.json();
         this.tickers.find(t => t.name === tickerName).value =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (this.sel?.name === tickerName) {
+        if (this.selectedTicker?.name === tickerName) {
           this.graph.push(data.USD);
         }
       }, 5000);
     },
     addTicker() {
       const curentTicker = { name: this.ticker.toUpperCase(), value: "-" };
-      this.tickers.push(curentTicker);
-      localStorage.setItem("tickers", JSON.stringify(this.tickers));
+      this.tickers = [...this.tickers, curentTicker];
+
       this.subscribeToUpdates(curentTicker.name);
 
       this.ticker = "";
+      this.filter = "";
     },
     autoFillHandler(t) {
       this.ticker = t.toUpperCase();
@@ -266,17 +344,13 @@ export default {
       }
     },
     select(ticker) {
-      this.sel === ticker ? (this.sel = null) : (this.sel = ticker);
-      this.graph = [];
+      this.selectedTicker === ticker
+        ? (this.selectedTicker = null)
+        : (this.selectedTicker = ticker);
     },
     deleteTicker(ticker) {
       this.tickers = this.tickers.filter(t => t !== ticker);
-      localStorage.setItem("tickers", this.tickers);
-    },
-    normalizeGraph() {
-      const min = Math.min(...this.graph);
-      const max = Math.max(...this.graph);
-      return this.graph.map(i => 5 + ((i - min) * 95) / (max - min));
+      if (this.selectedTicker == ticker) this.selectedTicker = null;
     }
   }
 };
