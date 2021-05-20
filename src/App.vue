@@ -199,6 +199,7 @@
 </template>
 
 <script>
+import { loadCurencyList, subscribeToTicker, unSubscribeToTicker } from "./api";
 export default {
   name: "App",
 
@@ -282,10 +283,7 @@ export default {
     }
   },
   async created() {
-    const c = await fetch(
-      "https://min-api.cryptocompare.com/data/top/totalvolfull?limit=100&tsym=USD"
-    );
-    const cur = await c.json();
+    const cur = await loadCurencyList();
     this.curencies = cur.Data.map(i => i.CoinInfo.Name);
 
     const windowData = Object.fromEntries(
@@ -303,31 +301,42 @@ export default {
     const dataFromLocal = localStorage.getItem("tickers");
     if (dataFromLocal) {
       this.tickers = JSON.parse(dataFromLocal);
-      this.tickers.forEach(tiker => {
-        this.subscribeToUpdates(tiker.name);
+      this.tickers.forEach(ticker => {
+        //this.subscribeToUpdates(tiker.name);
+        subscribeToTicker(ticker.name, price => {
+          this.updateTicker(ticker.name, price);
+          console.log("price: ", ticker.name, " ", price);
+        });
       });
     }
     this.loading = false;
   },
   methods: {
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=e11e9724d8f5a31459c7915874285eed4641fb210f5f8fef2c0b15e80ecf0107`
-        );
-        const data = await f.json();
-        this.tickers.find(t => t.name === tickerName).value =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (this.selectedTicker?.name === tickerName) {
-          this.graph.push(data.USD);
-        }
-      }, 5000);
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter(t => t.name === tickerName)
+        .forEach(t => (t.value = price));
+    },
+    subscribeToUpdates() {
+      // setInterval(async () => {
+      //   const exchangeData = await loadTicker(tickerName);
+      //   this.tickers.find(t => t.name === tickerName).value =
+      //     exchangeData.USD > 1
+      //       ? exchangeData.USD.toFixed(2)
+      //       : exchangeData.USD.toPrecision(2);
+      //   if (this.selectedTicker?.name === tickerName) {
+      //     this.graph.push(exchangeData.USD);
+      //   }
+      // }, 5000);
     },
     addTicker() {
       const curentTicker = { name: this.ticker.toUpperCase(), value: "-" };
       this.tickers = [...this.tickers, curentTicker];
 
-      this.subscribeToUpdates(curentTicker.name);
+      //this.subscribeToUpdates(curentTicker.name);
+      subscribeToTicker(curentTicker.name, price => {
+        this.updateTicker(curentTicker.name, price);
+      });
 
       this.ticker = "";
       this.filter = "";
@@ -351,6 +360,7 @@ export default {
     deleteTicker(ticker) {
       this.tickers = this.tickers.filter(t => t !== ticker);
       if (this.selectedTicker == ticker) this.selectedTicker = null;
+      unSubscribeToTicker(ticker.name);
     }
   }
 };
