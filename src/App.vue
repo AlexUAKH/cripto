@@ -4,86 +4,13 @@
 
     <div class="container">
       <div class="w-full my-4"></div>
-      <section>
-        <div class="flex">
-          <div class="max-w-xs">
-            <label for="wallet" class="block text-sm font-medium text-gray-700">
-              Тикер
-            </label>
-            <div class="mt-1 relative rounded-md shadow-md">
-              <input
-                type="text"
-                name="wallet"
-                v-model="ticker"
-                @keydown.enter="addTicker"
-                @keydown.delete="tickerExist = false"
-                id="wallet"
-                class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
-                placeholder="Например DOGE"
-              />
-            </div>
-            <div
-              v-if="tips.length"
-              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
-            >
-              <span
-                v-for="(tip, ind) in tips"
-                :key="tip + ind"
-                @click="autoFillHandler(tip)"
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                {{ tip }}
-              </span>
-            </div>
-            <div v-if="tickerExist" class="text-sm text-red-600">
-              Такой тикер уже добавлен
-            </div>
-          </div>
-        </div>
-        <button
-          v-if="!!ticker"
-          type="button"
-          @click="addTicker"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <!-- Heroicon name: solid/mail -->
-          <svg
-            class="-ml-0.5 mr-2 h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-          >
-            <path
-              d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-            ></path>
-          </svg>
-          Добавить
-        </button>
-      </section>
+      <v-ticker-input :tickers="tickers" @add-ticker="addTicker($event)" />
 
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
         <div class="flex justify-between items-center">
-          <div>
-            <button
-              type="button"
-              v-if="page > 1"
-              @click="page = page - 1"
-              class="m-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              v-if="isHaveNextPage"
-              @click="page = page + 1"
-              class="m-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-            >
-              Next
-            </button>
-          </div>
+          <v-pagination v-model="page" :isHaveNextPage="isHaveNextPage" />
+
           <div>Фильтр: <input v-model="filter" /></div>
         </div>
         <hr class="w-full border-t border-gray-600 my-4" />
@@ -142,22 +69,20 @@
 </template>
 
 <script>
-import { loadCurencyList, subscribeToTicker, unSubscribeToTicker } from "./api";
+import { subscribeToTicker, unSubscribeToTicker } from "./api";
 import vGraph from "./components/v-graph.vue";
 import vLoader from "./components/v-loader.vue";
+import vPagination from "./components/v-pagination.vue";
+import VTickerInput from "./components/v-ticker-input.vue";
 export default {
-  components: { vLoader, vGraph },
+  components: { vLoader, vGraph, vPagination, VTickerInput },
   name: "App",
 
   data: () => ({
     loading: true,
-    ticker: "",
     tickers: [],
     selectedTicker: null,
     graph: [],
-    tips: [],
-    curencies: [],
-    tickerExist: false,
     filter: "",
     page: 1,
     tickersOnPage: 3
@@ -197,16 +122,6 @@ export default {
         this.page -= 1;
       }
     },
-    ticker() {
-      if (this.ticker !== "") {
-        this.ticker = this.ticker.toUpperCase();
-        this.tips = this.curencies
-          .filter(i => i.includes(this.ticker))
-          .slice(0, 4);
-      } else {
-        this.tips = [];
-      }
-    },
     tickers() {
       localStorage.setItem("tickers", JSON.stringify(this.tickers));
     },
@@ -221,10 +136,7 @@ export default {
       );
     }
   },
-  async created() {
-    const cur = await loadCurencyList();
-    this.curencies = cur.Data.map(i => i.CoinInfo.Name);
-
+  created() {
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
@@ -259,21 +171,10 @@ export default {
         this.graph.push(price);
       }
     },
-    subscribeToUpdates() {
-      // setInterval(async () => {
-      //   const exchangeData = await loadTicker(tickerName);
-      //   this.tickers.find(t => t.name === tickerName).value =
-      //     exchangeData.USD > 1
-      //       ? exchangeData.USD.toFixed(2)
-      //       : exchangeData.USD.toPrecision(2);
-      //   if (this.selectedTicker?.name === tickerName) {
-      //     this.graph.push(exchangeData.USD);
-      //   }
-      // }, 5000);
-    },
-    addTicker() {
+    addTicker(tickerName) {
       //if (this.curencies.find(this.ticker)) return
-      const curentTicker = { name: this.ticker.toUpperCase(), value: "-" };
+      console.log("tn: ", tickerName);
+      const curentTicker = { name: tickerName.toUpperCase(), value: "-" };
       this.tickers = [...this.tickers, curentTicker];
 
       //this.subscribeToUpdates(curentTicker.name);
@@ -281,19 +182,7 @@ export default {
         this.updateTicker(curentTicker.name, price);
       });
 
-      this.ticker = "";
       this.filter = "";
-    },
-    autoFillHandler(t) {
-      this.ticker = t.toUpperCase();
-      const exist = this.tickers.filter(i => i.name === this.ticker).length;
-      if (exist > 0) {
-        this.tickerExist = true;
-        return;
-      } else {
-        this.tips = [];
-        this.addTicker();
-      }
     },
     select(ticker) {
       this.selectedTicker === ticker
