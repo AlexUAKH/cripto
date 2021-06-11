@@ -8,15 +8,17 @@ const socket = new WebSocket(
 );
 
 socket.addEventListener("message", e => {
-  const { TYPE: type, FROMSYMBOL: currency, PRICE: newPrice } = JSON.parse(
+  const { FROMSYMBOL: currency, TYPE: type, PRICE: newPrice } = JSON.parse(
     e.data
   );
-  if (type !== AGGREGATE_INDEX) {
+
+  if (type !== AGGREGATE_INDEX || newPrice === undefined) {
+    console.log("t: ", type, " ", newPrice, "");
     return;
   }
   const heandlers = tickerHandlers.get(currency) ?? [];
   heandlers.forEach(fn => fn(newPrice));
-  console.log("e: ", e);
+  //console.log("e: ", JSON.parse(e.data, null, "  "));
 });
 
 export const loadCurencyList = () => {
