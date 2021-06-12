@@ -13,7 +13,6 @@ socket.addEventListener("message", e => {
   );
 
   if (type !== AGGREGATE_INDEX || newPrice === undefined) {
-    console.log("t: ", type, " ", newPrice, "");
     return;
   }
   const heandlers = tickerHandlers.get(currency) ?? [];

@@ -17,7 +17,12 @@
 
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <!-- Tickers (active with border-4 -->
-          <div
+          <v-ticker-list-item
+            :selectedTicker="selectedTicker"
+            :paginatedTickers="paginatedTickers"
+            @delete-ticker="deleteTicker"
+          />
+          <!-- <div
             v-for="item in paginatedTickers"
             :key="item.name"
             @click="select(item)"
@@ -51,7 +56,7 @@
                 ></path></svg
               >Удалить
             </button>
-          </div>
+          </div> -->
         </dl>
 
         <hr class="w-full border-t border-gray-600 my-4" />
@@ -73,9 +78,10 @@ import { subscribeToTicker, unSubscribeToTicker } from "./api";
 import vGraph from "./components/v-graph.vue";
 import vLoader from "./components/v-loader.vue";
 import vPagination from "./components/v-pagination.vue";
-import VTickerInput from "./components/v-ticker-input.vue";
+import vTickerInput from "./components/v-ticker-input.vue";
+import vTickerListItem from "./components/v-ticker-list-item.vue";
 export default {
-  components: { vLoader, vGraph, vPagination, VTickerInput },
+  components: { vLoader, vGraph, vPagination, vTickerInput, vTickerListItem },
   name: "App",
 
   data: () => ({
@@ -146,7 +152,7 @@ export default {
     }
 
     if (windowData.page) {
-      this.page = windowData.page;
+      this.page = Number(windowData.page);
     }
 
     const dataFromLocal = localStorage.getItem("tickers");
@@ -156,7 +162,6 @@ export default {
         //this.subscribeToUpdates(tiker.name);
         subscribeToTicker(ticker.name, price => {
           this.updateTicker(ticker.name, price);
-          console.log("price: ", ticker.name, " ", price);
         });
       });
     }
@@ -173,7 +178,6 @@ export default {
     },
     addTicker(tickerName) {
       //if (this.curencies.find(this.ticker)) return
-      console.log("tn: ", tickerName);
       const curentTicker = { name: tickerName.toUpperCase(), value: "-" };
       this.tickers = [...this.tickers, curentTicker];
 

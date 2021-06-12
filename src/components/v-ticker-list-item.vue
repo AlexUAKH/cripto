@@ -37,5 +37,26 @@
 </template>
 
 <script>
-export default {};
+export default {
+  props: {
+    selectedTicker: {
+      type: Object,
+      default: () => {},
+      requred: true
+    },
+    paginatedTickers: {
+      type: Array,
+      default: () => [],
+      requred: true
+    }
+  },
+  emits: {
+    "delete-ticker": null
+  },
+  methods: {
+    deleteTicker(ticker) {
+      this.$emit("delete-ticker", ticker);
+    }
+  }
+};
 </script>
