@@ -87,7 +87,6 @@ export default {
     }
   },
   mounted() {
-    console.log("w: ", this.maxGraphEl);
     this.width = this.$refs.graph.clientWidth;
     this.calculateMaxGraphEl();
     window.addEventListener("resize", this.calculateMaxGraphEl);

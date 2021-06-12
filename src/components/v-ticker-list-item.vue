@@ -51,11 +51,15 @@ export default {
     }
   },
   emits: {
-    "delete-ticker": null
+    "delete-ticker": null,
+    "select-ticker": null
   },
   methods: {
     deleteTicker(ticker) {
       this.$emit("delete-ticker", ticker);
+    },
+    select(ticker) {
+      this.$emit("select-ticker", ticker);
     }
   }
 };
